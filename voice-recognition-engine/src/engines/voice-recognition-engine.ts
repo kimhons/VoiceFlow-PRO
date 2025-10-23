@@ -39,7 +39,7 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
   private currentEngine: ModelType | null = null;
   private isListening = false;
   private isInitialized = false;
-  private currentLanguage: Language | null = null;
+  private _currentLanguage: Language | null = null;
   private resultBuffer: SpeechRecognitionResult[] = [];
   private stats: RecognitionStats;
 
@@ -191,12 +191,12 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
 
   private setupEventForwarding(): void {
     // Forward results from active engine
-    this.webSpeechEngine.on('recognition:result', (result) => {
-      this.processResult(result, ModelType.WEB_SPEECH_API);
+    this.webSpeechEngine.on('recognition:result', async (result) => {
+      await this.processResult(result, ModelType.WEB_SPEECH_API);
     });
 
-    this.whisperEngine.on('recognition:result', (result) => {
-      this.processResult(result, ModelType.WHISPER_BASE);
+    this.whisperEngine.on('recognition:result', async (result) => {
+      await this.processResult(result, ModelType.WHISPER_BASE);
     });
 
     // Forward audio metrics
@@ -210,12 +210,12 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
 
     // Forward language detection
     this.webSpeechEngine.on('language:detected', (language) => {
-      this.currentLanguage = language;
+      this._currentLanguage = language;
       this.emit('language:detected', language);
     });
 
     this.whisperEngine.on('language:detected', (language) => {
-      this.currentLanguage = language;
+      this._currentLanguage = language;
       this.emit('language:detected', language);
     });
 
@@ -224,9 +224,9 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
     this.whisperEngine.on('recognition:error', (error) => this.handleEngineError(error));
   }
 
-  private processResult(result: SpeechRecognitionResult, engineType: ModelType): void {
+  private async processResult(result: SpeechRecognitionResult, engineType: ModelType): Promise<void> {
     // Apply plugins
-    const processedResult = this.applyPlugins(result);
+    const processedResult = await this.applyPlugins(result);
 
     // Update statistics
     this.updateStats(processedResult, engineType);
@@ -240,15 +240,14 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
     }
   }
 
-  private applyPlugins(result: SpeechRecognitionResult): SpeechRecognitionResult {
+  private async applyPlugins(result: SpeechRecognitionResult): Promise<SpeechRecognitionResult> {
     let processedResult = result;
 
     // Apply all registered plugins
     for (const plugin of this.plugins.values()) {
       if (plugin.enhanceResult) {
         processedResult = { ...processedResult }; // Create copy
-        // Note: In async context, we would await this
-        processedResult = plugin.enhanceResult(processedResult) as SpeechRecognitionResult;
+        processedResult = await plugin.enhanceResult(processedResult);
       }
     }
 
@@ -287,13 +286,14 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
     if (!this.isListening) return;
 
     const wasListening = this.isListening;
+    const previousEngine = this.currentEngine;
     this.isListening = false;
 
     // Stop current engine
-    await this.stopEngine(previousEngine);
+    await this.stopEngine(previousEngine!);
 
     // Start new engine
-    await this.startEngine(this.currentEngine);
+    await this.startEngine(this.currentEngine!);
 
     if (wasListening) {
       this.isListening = true;
@@ -562,8 +562,6 @@ export class VoiceFlowRecognitionEngine extends EventEmitter<VoiceRecognitionEve
   get currentLanguage(): Language | null {
     return this._currentLanguage;
   }
-
-  private _currentLanguage: Language | null = null;
 
   get currentEngine(): ModelType | null {
     return this.currentEngine;

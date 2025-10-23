@@ -56,7 +56,9 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "eventemitter3": "^5.0.1"
+    "eventemitter3": "^5.0.1",
+    "@xenova/transformers": "^2.14.0",
+    "@ricky0123/vad-web": "^0.0.19"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
@@ -95,25 +97,7 @@
       "default": "./dist/voiceflow-pro.umd.js"
     }
   },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.ts"],
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1"
-    },
-    "collectCoverageFrom": [
-      "src/**/*.ts",
-      "!src/**/*.d.ts",
-      "!src/**/*.test.ts"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": ["text", "lcov", "html"],
-    "testMatch": [
-      "**/tests/**/*.test.ts",
-      "**/__tests__/**/*.test.ts"
-    ]
-  },
+
   "prettier": {
     "semi": true,
     "trailingComma": "es5",

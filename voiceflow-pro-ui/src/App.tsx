@@ -1,22 +1,44 @@
-// VoiceFlow Pro UI Demo Application
+// VoiceFlow Pro UI Demo Application - Enhanced with Lazy Loading & Mobile Optimization
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Sun, Moon, Monitor, Globe, Mic } from 'lucide-react';
 import {
+  // Enhanced components with loading states and error boundaries
   VoiceRecording,
   TranscriptionDisplay,
   LanguageSelector,
   AudioVisualization,
   SettingsPanel,
+  LoadingState,
+  ErrorBoundary,
+  useErrorHandler,
+  // Lazy loading components
+  LazyComponent,
+  LazyVoiceRecording,
+  LazyTranscriptionDisplay,
+  LazyLanguageSelector,
+  LazyAudioVisualization,
+  LazySettingsPanel,
+  useComponentPreloader,
 } from './components';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { TranscriptionSegment, AudioVisualizationData } from './types';
+// Enhanced hooks
+import { useResponsive, useReducedMotion } from './hooks';
 
-// Demo App Content Component
+// Enhanced Demo App Content Component with Mobile Optimization
 const AppContent: React.FC = () => {
   const { theme, resolvedTheme, setTheme, platform, colors, spacing, borderRadius, typography } = useTheme();
+  const { isMobile, isTablet, isDesktop, width, height, currentBreakpoint, isTouchDevice } = useResponsive();
+  const prefersReducedMotion = useReducedMotion();
+  const { preloadComponents, isPreloading, preloadProgress } = useComponentPreloader();
+  const handleError = useErrorHandler();
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [useLazyLoading, setUseLazyLoading] = useState(true); // Toggle for demo
+  const [isComponentsPreloaded, setIsComponentsPreloaded] = useState(false);
+
   const [recordingState, setRecordingState] = useState({
     isRecording: false,
     isPaused: false,
@@ -57,6 +79,61 @@ const AppContent: React.FC = () => {
   ]);
   
   const [audioData, setAudioData] = useState<AudioVisualizationData[]>([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionProgress, setTranscriptionProgress] = useState(0);
+
+  // Preload components on mount for better performance
+  useEffect(() => {
+    const preloadInitialComponents = async () => {
+      try {
+        // Preload critical components first
+        await preloadComponents(['voice-recording', 'transcription-display']);
+        setIsComponentsPreloaded(true);
+      } catch (error) {
+        console.warn('Failed to preload some components:', error);
+        handleError(error as Error);
+      }
+    };
+
+    // Small delay to ensure initial render is smooth
+    const timeoutId = setTimeout(preloadInitialComponents, 100);
+    return () => clearTimeout(timeoutId);
+  }, [preloadComponents, handleError]);
+
+  // Handle transcription updates from AI processing
+  const handleTranscriptionUpdate = (segments: TranscriptionSegment[]) => {
+    setTranscriptionSegments(prev => [...prev, ...segments]);
+    setIsTranscribing(false);
+    setTranscriptionProgress(100);
+  };
+
+  // Enhanced voice recording with AI processing
+  const handleRecordingStateChange = (newState: any) => {
+    setRecordingState(newState);
+    
+    // Handle AI processing start
+    if (newState.isRecording && !recordingState.isRecording) {
+      setIsTranscribing(false);
+      setTranscriptionProgress(0);
+    }
+    
+    // Handle recording stop - start AI processing
+    if (!newState.isRecording && recordingState.isRecording) {
+      setIsTranscribing(true);
+      setTranscriptionProgress(10);
+    }
+  };
+
+  // Handle preloading toggle
+  const toggleLazyLoading = () => {
+    setUseLazyLoading(!useLazyLoading);
+    if (!useLazyLoading) {
+      // When enabling lazy loading, preload next components
+      setTimeout(() => {
+        preloadComponents(['audio-visualization', 'language-selector']);
+      }, 500);
+    }
+  };
 
   // Handle voice recording state changes
   const handleRecordingStateChange = (newState: any) => {
@@ -139,28 +216,36 @@ const AppContent: React.FC = () => {
     </div>
   );
 
+  // Enhanced responsive styles with mobile-first approach
   const containerStyles: React.CSSProperties = {
     minHeight: '100vh',
     backgroundColor: colors.background,
     color: colors.text,
     fontFamily: typography.fontFamily,
-    padding: spacing.xl,
+    padding: isMobile ? spacing.md : spacing.xl,
+    paddingBottom: isMobile ? '80px' : spacing.xl, // Extra space for mobile nav
   };
 
   const headerStyles: React.CSSProperties = {
     display: 'flex',
-    alignItems: 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xl,
-    flexWrap: 'wrap',
-    gap: spacing.md,
+    marginBottom: isMobile ? spacing.lg : spacing.xl,
+    gap: isMobile ? spacing.md : spacing.sm,
+    position: isMobile ? 'sticky' : 'static',
+    top: isMobile ? '0' : 'auto',
+    zIndex: isMobile ? '50' : 'auto',
+    backgroundColor: isMobile ? colors.background : 'transparent',
+    paddingTop: isMobile ? spacing.sm : '0',
+    paddingBottom: isMobile ? spacing.sm : '0',
   };
 
   const mainGridStyles: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: spacing.xl,
-    maxWidth: '1400px',
+    gap: isMobile ? spacing.md : spacing.xl,
+    gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : '1fr 1fr',
+    maxWidth: isMobile ? '100%' : '1400px',
     margin: '0 auto',
   };
 
@@ -168,91 +253,172 @@ const AppContent: React.FC = () => {
     backgroundColor: colors.background,
     border: `1px solid ${colors.border}`,
     borderRadius: borderRadius.large,
-    padding: spacing.xl,
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    padding: isMobile ? spacing.md : spacing.xl,
+    boxShadow: isMobile ? 'none' : '0 4px 12px rgba(0, 0, 0, 0.05)',
+    marginBottom: isMobile ? spacing.md : '0',
   };
 
   const titleStyles: React.CSSProperties = {
     margin: `0 0 ${spacing.lg} 0`,
-    fontSize: typography.fontSize['2xl'],
+    fontSize: isMobile ? typography.fontSize.xl : typography.fontSize['2xl'],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     display: 'flex',
     alignItems: 'center',
     gap: spacing.sm,
+    flexWrap: 'wrap',
   };
 
-  return (
-    <div style={containerStyles}>
-      {/* Header */}
-      <header style={headerStyles}>
-        <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: typography.fontSize['3xl'],
-            fontWeight: typography.fontWeight.bold,
-            color: colors.text,
-          }}>
-            VoiceFlow Pro UI Components
-          </h1>
-          <p style={{ 
-            margin: `${spacing.xs} 0 0 0`,
-            fontSize: typography.fontSize.lg,
-            color: colors.textSecondary,
-          }}>
-            Cross-platform voice recording interface with accessibility features
-          </p>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-          <PlatformIndicator />
-          <ThemeToggle />
-          
-          <button
-            aria-label="Open settings"
-            onClick={() => setIsSettingsOpen(true)}
-            style={{
-              padding: spacing.md,
-              borderRadius: borderRadius.medium,
-              border: `1px solid ${colors.border}`,
-              backgroundColor: colors.backgroundSecondary,
-              color: colors.text,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs,
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Settings size={18} />
-            Settings
-          </button>
-        </div>
-      </header>
+  // Performance monitoring
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎯 Responsive Debug:
+        - Screen: ${width}x${height}
+        - Breakpoint: ${currentBreakpoint}
+        - Is Mobile: ${isMobile}
+        - Is Tablet: ${isTablet}
+        - Is Desktop: ${isDesktop}
+        - Touch Device: ${isTouchDevice}
+        - Lazy Loading: ${useLazyLoading}
+        - Components Preloaded: ${isComponentsPreloaded}
+      `);
+    }
+  }, [width, height, currentBreakpoint, isMobile, isTablet, isDesktop, isTouchDevice, useLazyLoading, isComponentsPreloaded]);
 
-      {/* Main content grid */}
-      <div style={mainGridStyles}>
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xl }}>
-          {/* Voice Recording Section */}
-          <section style={sectionStyles}>
-            <h2 style={titleStyles}>
-              <Mic size={24} />
-              Voice Recording
-            </h2>
+  return (
+    <ErrorBoundary onError={handleError}>
+      <div style={containerStyles} className={`voiceflow-app ${isMobile ? 'mobile-optimized' : ''}`}>
+        {/* Loading overlay for preloading */}
+        {isPreloading && (
+          <div className="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Preloading... {Math.round(preloadProgress)}%</span>
+            </div>
+          </div>
+        )}
+
+        {/* Transcription progress */}
+        {isTranscribing && (
+          <div className="fixed top-4 left-4 z-50 w-80">
+            <LoadingState
+              type="transcription"
+              message="Processing speech with AI..."
+              progress={transcriptionProgress}
+              size="small"
+              variant="primary"
+            />
+          </div>
+        )}
+
+        {/* Header */}
+        <header style={headerStyles}>
+          <div className={isMobile ? 'text-center' : ''}>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: isMobile ? typography.fontSize['2xl'] : typography.fontSize['3xl'],
+              fontWeight: typography.fontWeight.bold,
+              color: colors.text,
+            }}>
+              VoiceFlow Pro UI Components
+            </h1>
+            <p style={{ 
+              margin: `${spacing.xs} 0 0 0`,
+              fontSize: isMobile ? typography.fontSize.base : typography.fontSize.lg,
+              color: colors.textSecondary,
+            }}>
+              Cross-platform voice recording interface with AI processing
+            </p>
+          </div>
+          
+          <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-center'} gap-`}>
+            {/* Development controls for demo */}
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={toggleLazyLoading}
+                className={`px-3 py-1 text-xs rounded border ${
+                  useLazyLoading 
+                    ? 'bg-green-100 text-green-800 border-green-300' 
+                    : 'bg-gray-100 text-gray-800 border-gray-300'
+                }`}
+                title="Toggle lazy loading for demo"
+              >
+                {useLazyLoading ? 'Lazy ON' : 'Lazy OFF'}
+              </button>
+            )}
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-              <VoiceRecording
-                onStateChange={handleRecordingStateChange}
-                onRecordingStart={() => console.log('Recording started')}
-                onRecordingStop={() => console.log('Recording stopped')}
-                onRecordingPause={() => console.log('Recording paused')}
-                onRecordingResume={() => console.log('Recording resumed')}
-                showVolume={true}
-                showSettings={false}
-                size="large"
-                variant="primary"
-              />
+            <PlatformIndicator />
+            <ThemeToggle />
+            
+            <button
+              aria-label="Open settings"
+              onClick={() => setIsSettingsOpen(true)}
+              style={{
+                padding: spacing.md,
+                borderRadius: borderRadius.medium,
+                border: `1px solid ${colors.border}`,
+                backgroundColor: colors.backgroundSecondary,
+                color: colors.text,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                transition: 'all 0.2s ease',
+                minHeight: isMobile ? '44px' : 'auto', // Touch-friendly
+              }}
+            >
+              <Settings size={18} />
+              <span className={isMobile ? 'hidden' : 'inline'}>Settings</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Main content grid */}
+        <div style={mainGridStyles}>
+          {/* Left column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? spacing.md : spacing.xl }}>
+            {/* Voice Recording Section */}
+            <section style={sectionStyles}>
+              <h2 style={titleStyles}>
+                <Mic size={isMobile ? 20 : 24} />
+                Voice Recording
+              </h2>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                {useLazyLoading ? (
+                  <LazyComponent
+                    component={LazyVoiceRecording}
+                    fallback={<LoadingState type="recording" message="Loading voice recording..." size="medium" />}
+                  >
+                    <VoiceRecording
+                      onStateChange={handleRecordingStateChange}
+                      onTranscriptionUpdate={handleTranscriptionUpdate}
+                      onRecordingStart={() => console.log('Recording started')}
+                      onRecordingStop={() => console.log('Recording stopped')}
+                      onRecordingPause={() => console.log('Recording paused')}
+                      onRecordingResume={() => console.log('Recording resumed')}
+                      showVolume={true}
+                      showSettings={false}
+                      enableAIProcessing={true}
+                      size={isMobile ? "medium" : "large"}
+                      variant="primary"
+                    />
+                  </LazyComponent>
+                ) : (
+                  <VoiceRecording
+                    onStateChange={handleRecordingStateChange}
+                    onTranscriptionUpdate={handleTranscriptionUpdate}
+                    onRecordingStart={() => console.log('Recording started')}
+                    onRecordingStop={() => console.log('Recording stopped')}
+                    onRecordingPause={() => console.log('Recording paused')}
+                    onRecordingResume={() => console.log('Recording resumed')}
+                    showVolume={true}
+                    showSettings={false}
+                    enableAIProcessing={true}
+                    size={isMobile ? "medium" : "large"}
+                    variant="primary"
+                  />
+                )}
               
               {/* Recording status */}
               <div

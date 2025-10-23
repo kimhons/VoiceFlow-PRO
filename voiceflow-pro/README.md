@@ -27,6 +27,10 @@ VoiceFlow Pro is a next-generation, cross-platform voice productivity applicatio
 
 - **🎤 Advanced Voice Recognition**: Web Speech API + Whisper.js with 150+ language support
 - **🤖 AI Text Processing**: Smart grammar correction, tone adjustment, and context-aware editing  
+- **🚀 AI ML API Integration**: GPT-5 Pro, advanced TTS, multilingual translation via aimlapi.com
+- **🎙️ Voice Generation**: High-quality neural voices with emotion and style control
+- **🌍 Multilingual Support**: 10+ languages with cultural adaptation and context awareness
+- **🧠 Context-Aware AI**: Intelligent understanding of intent, sentiment, and conversation flow
 - **🌐 Cross-Platform**: Native applications for Windows, macOS, and Linux
 - **⚡ High Performance**: Optimized for speed and resource efficiency
 - **🎨 Modern UI**: Accessible, responsive interface with real-time feedback
@@ -49,6 +53,7 @@ VoiceFlow Pro is a next-generation, cross-platform voice productivity applicatio
 ├─────────────────────────────────────────────────────────────┤
 │  Backend (Rust + Tauri)                                     │
 │  ├── Voice Recognition Integration                         │
+│  ├── AI ML API Gateway (aimlapi.com)                       │
 │  ├── AI Text Processor Bridge                              │
 │  ├── System Integration (Hotkeys, Tray)                    │
 │  └── Cross-Platform Abstraction                            │
@@ -56,6 +61,7 @@ VoiceFlow Pro is a next-generation, cross-platform voice productivity applicatio
 │  Core Components                                            │
 │  ├── 🎤 Voice Recognition Engine (TypeScript)              │
 │  ├── 🤖 AI Text Processor (Python)                         │
+│  ├── 🚀 AI ML Services (GPT-5 Pro, TTS, Translation)      │
 │  ├── 🎨 UI Components (React/TypeScript)                   │
 │  └── 🔧 Build & Deployment System                          │
 └─────────────────────────────────────────────────────────────┘
@@ -105,6 +111,56 @@ npm run tauri build
 # 6. Start development
 npm run dev
 ```
+
+## 🚀 AI ML API Integration
+
+VoiceFlow Pro now includes comprehensive AI/ML capabilities through seamless integration with [aimlapi.com](https://aimlapi.com/), providing access to 300+ AI models from 20+ providers through a single unified gateway.
+
+### 🤖 Available AI Services
+
+- **GPT-5 Pro Integration**: Advanced text enhancement and processing
+- **Neural Voice Synthesis**: High-quality TTS with emotion and style control
+- **Multilingual Translation**: 10+ languages with cultural adaptation
+- **Context-Aware Processing**: Intelligent understanding of intent and sentiment
+
+### ⚙️ Setup AI ML API
+
+1. **Get API Key**: Sign up at [aimlapi.com](https://aimlapi.com/) and get your API key
+2. **Configure Environment**: Copy `.env.template` to `.env` and add your API key
+3. **Initialize Services**: Use the provided initialization commands
+
+```bash
+# Set up environment
+cp .env.template .env
+# Edit .env and add your AIML_API_KEY
+
+# Initialize AI ML services
+npm run ai:check
+npm run ai:examples
+```
+
+### 📊 Key Features
+
+- **Unified API Gateway**: Single interface for all AI capabilities
+- **Real-time Processing**: Sub-second response times for most operations
+- **Error Handling**: Comprehensive fallback mechanisms and recovery
+- **Health Monitoring**: Built-in service health checks and metrics
+- **Caching**: Intelligent caching for improved performance
+
+### 🎯 Usage Examples
+
+```rust
+// Enhanced text processing
+let result = gateway.process_enhanced_text(request).await?;
+
+// Voice generation with emotion
+let voice = gateway.generate_enhanced_voice(voice_request).await?;
+
+// Multilingual translation
+let translation = gateway.translate_with_enhancement(text, from, to).await?;
+```
+
+See [AI_ML_API_INTEGRATION_COMPLETE.md](./AI_ML_API_INTEGRATION_COMPLETE.md) for detailed documentation and examples.
 
 ## 📁 Project Structure
 

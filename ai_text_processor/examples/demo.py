@@ -5,9 +5,9 @@ Demonstrates various features and use cases
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.api import (
+from api import (
     SimpleTextProcessor, 
     AdvancedTextProcessor, 
     TextProcessorFactory,
@@ -15,7 +15,7 @@ from src.api import (
     analyze_text,
     batch_process_texts
 )
-from src.text_processor import ProcessingOptions, ProcessingContext, ToneType
+from text_processor import ProcessingOptions, ProcessingContext, ToneType
 import time
 
 

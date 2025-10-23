@@ -29,6 +29,8 @@ import {
   RecognitionError
 } from './engines/voice-recognition-engine';
 
+import { languageManager } from './config/languages';
+
 /**
  * Create and configure a new voice recognition engine instance
  */

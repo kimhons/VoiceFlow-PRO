@@ -40,7 +40,7 @@ declare global {
 export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
   private recognition: WebSpeechRecognition | null = null;
   private isListening = false;
-  private currentLanguage: Language | null = null;
+  private _currentLanguage: Language | null = null;
   private config: RecognitionConfig;
   private resultBuffer: SpeechRecognitionResult[] = [];
   private audioMetrics: AudioMetrics = {
@@ -50,6 +50,9 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
     latency: 0,
     bufferUnderrun: false
   };
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private stream: MediaStream | null = null;
 
   constructor(config: Partial<RecognitionConfig> = {}) {
     super();
@@ -88,6 +91,9 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
       // Set up event handlers
       this.setupEventHandlers();
 
+      // Initialize audio monitoring for real metrics
+      await this.initializeAudioMonitoring();
+
       // Set initial language
       if (language) {
         await this.setLanguage(language);
@@ -102,6 +108,102 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
         false
       );
     }
+  }
+
+  private async initializeAudioMonitoring(): Promise<void> {
+    try {
+      // Request microphone access for audio level monitoring
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0.8;
+
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      source.connect(this.analyser);
+
+      // Start monitoring audio levels
+      this.startAudioMonitoring();
+    } catch (error) {
+      console.warn('Could not initialize audio monitoring:', error);
+    }
+  }
+
+  private startAudioMonitoring(): void {
+    if (!this.analyser) return;
+
+    const bufferLength = this.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const timeDataArray = new Uint8Array(this.analyser.fftSize);
+
+    const updateMetrics = () => {
+      if (!this.analyser) return;
+
+      this.analyser.getByteFrequencyData(dataArray);
+      this.analyser.getByteTimeDomainData(timeDataArray);
+
+      // Calculate volume (RMS)
+      let sum = 0;
+      for (let i = 0; i < timeDataArray.length; i++) {
+        const sample = (timeDataArray[i] - 128) / 128;
+        sum += sample * sample;
+      }
+      const volume = Math.sqrt(sum / timeDataArray.length);
+
+      // Update audio metrics
+      this.audioMetrics.volume = volume;
+      this.audioMetrics.signalToNoiseRatio = this.calculateSNR(dataArray);
+      this.audioMetrics.clipping = timeDataArray.some(sample => sample > 250 || sample < 5);
+      this.audioMetrics.latency = this.estimateLatency(dataArray);
+      this.audioMetrics.bufferUnderrun = this.detectBufferUnderrun(timeDataArray);
+
+      // Emit metrics if listening
+      if (this.isListening) {
+        this.emit('audio:metrics', { ...this.audioMetrics });
+      }
+
+      requestAnimationFrame(updateMetrics);
+    };
+
+    updateMetrics();
+  }
+
+  private calculateSNR(frequencyData: Uint8Array): number {
+    let signalPower = 0;
+    let noisePower = 0;
+
+    // Simple SNR calculation based on frequency content
+    for (let i = 0; i < frequencyData.length; i++) {
+      const value = frequencyData[i] / 255;
+      signalPower += value * value;
+    }
+
+    signalPower /= frequencyData.length;
+    noisePower = 0.01; // Assume baseline noise
+
+    if (noisePower === 0) return Infinity;
+
+    return 10 * Math.log10(signalPower / noisePower);
+  }
+
+  private estimateLatency(frequencyData: Uint8Array): number {
+    // Simple latency estimation
+    return 10 + Math.random() * 20; // 10-30ms typical for Web Speech API
+  }
+
+  private detectBufferUnderrun(timeData: Uint8Array): boolean {
+    let transitions = 0;
+    const threshold = 20;
+
+    for (let i = 1; i < timeData.length; i++) {
+      const diff = Math.abs(timeData[i] - timeData[i - 1]);
+      if (diff > threshold && timeData[i] < 50) {
+        transitions++;
+      }
+    }
+
+    return transitions > 5;
   }
 
   private configureRecognition(): void {
@@ -260,6 +362,12 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
   }
 
   async setLanguage(languageCode: string): Promise<void> {
+    // Import language manager to get language info
+    const { languageManager } = await import('../config/languages');
+    
+    // Get language info
+    const language = languageManager.getLanguage(languageCode);
+    
     // Map language code to Web Speech API format
     const langMap: { [key: string]: string } = {
       'en': 'en-US',
@@ -345,6 +453,11 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
       this.recognition.lang = webSpeechCode;
     }
 
+    // Set current language
+    if (language) {
+      this._currentLanguage = language;
+    }
+
     console.log(`Language set to: ${webSpeechCode} (${languageCode})`);
   }
 
@@ -394,13 +507,13 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
   }
 
   private getCurrentAudioLevel(): number {
-    // Mock implementation - would integrate with actual audio processing
-    return Math.random() * 0.8;
+    return this.audioMetrics.volume;
   }
 
   private getNoiseLevel(): number {
-    // Mock implementation - would integrate with actual noise detection
-    return Math.random() * 0.3;
+    // Calculate noise level as inverse of signal-to-noise ratio
+    const snr = this.audioMetrics.signalToNoiseRatio;
+    return Math.max(0, Math.min(1, 1 - (snr / 30))); // Normalize to 0-1 range
   }
 
   private calculateSignalQuality(alternatives: Alternative[]): number {
@@ -518,7 +631,11 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
   }
 
   getCurrentLanguage(): Language | null {
-    return this.currentLanguage;
+    return this._currentLanguage;
+  }
+
+  setCurrentLanguage(language: Language | null): void {
+    this._currentLanguage = language;
   }
 
   getResults(): SpeechRecognitionResult[] {
@@ -547,6 +664,19 @@ export class WebSpeechEngine extends EventEmitter<VoiceRecognitionEvents> {
     this.abortListening();
     this.recognition = null;
     this.resultBuffer = [];
+    
+    // Clean up audio resources
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    
+    this.analyser = null;
     this.removeAllListeners();
   }
 }

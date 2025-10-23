@@ -15,7 +15,11 @@
     "type-check": "tsc --noEmit",
     "test": "echo \"Run tests in individual packages\"",
     "setup": "npm install && cd src-tauri && cargo check",
-    "dist": "npm run build && npm run tauri:build"
+    "dist": "npm run build && npm run tauri:build",
+    "ai:examples": "cd src-tauri && cargo run --example ai_ml_api_usage_examples",
+    "ai:check": "cd src-tauri && cargo check --features ai-ml-api",
+    "ai:test": "cd src-tauri && cargo test --features ai-ml-api",
+    "ai:build": "cd src-tauri && cargo build --features ai-ml-api --release"
   },
   "keywords": [
     "voice-assistant",

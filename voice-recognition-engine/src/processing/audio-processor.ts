@@ -340,14 +340,21 @@ export class AudioProcessor {
   }
 
   getAudioLevel(): number {
+    if (!this.isInitialized) {
+      return 0;
+    }
+    
     const metrics = this.getAudioMetrics();
     return metrics.volume;
   }
 
   getNoiseLevel(): number {
-    return this.noiseProfile ? 
-      this.noiseProfile.reduce((sum, val) => sum + val, 0) / this.noiseProfile.length / 255 : 
-      0;
+    if (!this.noiseProfile) {
+      return 0;
+    }
+    
+    const noiseSum = this.noiseProfile.reduce((sum, val) => sum + val, 0);
+    return noiseSum / this.noiseProfile.length / 255;
   }
 
   isAudioActive(threshold: number = 0.01): boolean {
@@ -491,5 +498,158 @@ export class AudioVisualizer {
     };
 
     draw();
+  }
+
+  /**
+   * Process audio data with optional noise reduction and normalization
+   */
+  async processAudio(
+    audioData: Float32Array,
+    options: {
+      sampleRate?: number;
+      enableNoiseReduction?: boolean;
+      enableNormalization?: boolean;
+    } = {}
+  ): Promise<Float32Array> {
+    let processed = new Float32Array(audioData);
+
+    if (options.enableNoiseReduction !== false && this.audioConfig.noiseReductionLevel > 0) {
+      processed = this.reduceNoise(processed, options.sampleRate || this.audioConfig.sampleRate);
+    }
+
+    if (options.enableNormalization) {
+      processed = this.normalizeAudio(processed);
+    }
+
+    return processed;
+  }
+
+  /**
+   * Reduce noise from audio using spectral subtraction
+   */
+  reduceNoise(audioData: Float32Array, sampleRate: number): Float32Array {
+    const frameSize = Math.min(2048, audioData.length);
+    const output = new Float32Array(audioData.length);
+
+    for (let i = 0; i < audioData.length; i += frameSize) {
+      const frame = audioData.slice(i, i + frameSize);
+      const windowedFrame = this.applyHannWindow(frame);
+      
+      // Pad frame if necessary
+      const paddedFrame = new Float32Array(frameSize);
+      paddedFrame.set(windowedFrame.slice(0, Math.min(windowedFrame.length, frameSize)));
+
+      // Apply FFT
+      const fft = this.computeFFT(paddedFrame);
+      
+      // Apply spectral subtraction
+      const cleanFFT = this.spectralSubtraction(fft);
+      
+      // Apply IFFT
+      const cleanFrame = this.computeIFFT(cleanFFT);
+
+      // Copy to output
+      for (let j = 0; j < frameSize && i + j < output.length; j++) {
+        output[i + j] = cleanFrame[j] * 0.5 + frame[j] * 0.5; // Blend with original
+      }
+    }
+
+    return output;
+  }
+
+  /**
+   * Detect voice activity in audio data
+   */
+  detectVoiceActivity(
+    audioData: Float32Array,
+    options: {
+      threshold?: number;
+      minDuration?: number;
+      sampleRate?: number;
+    } = {}
+  ): {
+    hasSpeech: boolean;
+    speechSegments: Array<{ start: number; end: number }>;
+  } {
+    const threshold = options.threshold || 0.1;
+    const minDuration = options.minDuration || 100; // ms
+    const sampleRate = options.sampleRate || this.audioConfig.sampleRate;
+    const frameSize = Math.floor(sampleRate * minDuration / 1000);
+    
+    const segments: Array<{ start: number; end: number }> = [];
+    let inSpeech = false;
+    let segmentStart = 0;
+
+    for (let i = 0; i < audioData.length; i += frameSize) {
+      const frame = audioData.slice(i, i + frameSize);
+      const energy = this.calculateFrameEnergy(frame);
+
+      if (energy > threshold && !inSpeech) {
+        inSpeech = true;
+        segmentStart = i;
+      } else if (energy <= threshold && inSpeech) {
+        inSpeech = false;
+        if (i - segmentStart >= frameSize) {
+          segments.push({
+            start: segmentStart / sampleRate,
+            end: i / sampleRate
+          });
+        }
+      }
+    }
+
+    // Handle case where speech continues to the end
+    if (inSpeech) {
+      segments.push({
+        start: segmentStart / sampleRate,
+        end: audioData.length / sampleRate
+      });
+    }
+
+    return {
+      hasSpeech: segments.length > 0,
+      speechSegments: segments
+    };
+  }
+
+  /**
+   * Normalize audio levels to prevent clipping
+   */
+  normalizeAudio(audioData: Float32Array, targetLevel: number = 0.8): Float32Array {
+    let maxAmplitude = 0;
+    
+    // Find maximum amplitude
+    for (let i = 0; i < audioData.length; i++) {
+      const amplitude = Math.abs(audioData[i]);
+      if (amplitude > maxAmplitude) {
+        maxAmplitude = amplitude;
+      }
+    }
+
+    if (maxAmplitude === 0) {
+      return audioData;
+    }
+
+    // Calculate normalization factor
+    const normalizationFactor = targetLevel / maxAmplitude;
+    
+    // Apply normalization
+    const normalized = new Float32Array(audioData.length);
+    for (let i = 0; i < audioData.length; i++) {
+      normalized[i] = audioData[i] * normalizationFactor;
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Calculate frame energy for voice activity detection
+   */
+  private calculateFrameEnergy(frame: Float32Array): number {
+    let energy = 0;
+    for (let i = 0; i < frame.length; i++) {
+      energy += frame[i] * frame[i];
+    }
+    return Math.sqrt(energy / frame.length);
   }
 }
