@@ -1,0 +1,5 @@
+name: UI E2E (voiceflow-pro-ui)
+jobs:
+  ui-e2e:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: voiceflow-pro-ui } }
