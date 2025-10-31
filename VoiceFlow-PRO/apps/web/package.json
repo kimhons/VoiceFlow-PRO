@@ -13,12 +13,12 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:ci": "vitest run --reporter=verbose --coverage",
-    "lint": "pnpm install --prefer-offline && eslint .",
-    "lint:fix": "pnpm install --prefer-offline && eslint . --fix",
-    "preview": "pnpm install --prefer-offline && vite preview",
-    "type-check": "tsc --noEmit",
-    "install-deps": "pnpm install --prefer-offline",
-    "clean": "rm -rf node_modules .pnpm-store pnpm-lock.yaml && pnpm store prune"
+    "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test e2e/smoke.spec.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -84,6 +84,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@playwright/test": "^1.56.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -94,6 +95,7 @@
     "@types/react-router-dom": "^5",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/ui": "^4.0.3",
+    "audit-ci": "^7.1.0",
     "autoprefixer": "10.4.20",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
