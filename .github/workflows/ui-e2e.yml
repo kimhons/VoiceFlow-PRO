@@ -1,0 +1,6 @@
+name: UI E2E (voiceflow-pro-ui)
+on: { pull_request: {}, push: {} }
+jobs:
+  ui-e2e:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: voiceflow-pro-ui } }
