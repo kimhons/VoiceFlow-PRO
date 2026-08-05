@@ -80,3 +80,4 @@ ui-e2e-work/
 .claude/.abs-active
 .claude/.spec-lock
 .claude/abs-config.json
+.gstack/
